@@ -2,27 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Neon Snake Canvas Game</title>
+  <title>Neon Snake Canvas Game - Iteration #14</title>
+  <!-- Link to the CSS styles -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Start button: shown before the game starts -->
   <button id="start-button">Start Game</button>
 
+  <!-- Header showing current and high score, and pause button -->
   <div id="header">
     <div id="scoreboard">Score: 0</div>
     <div id="highscore">High Score: 0</div>
+    <button id="pause-button" style="display:none;">Pause</button>
   </div>
 
+  <!-- The canvas element where the game is rendered -->
   <canvas id="gameCanvas"></canvas>
 
+  <!-- Game Over modal -->
   <div id="game-over-modal">
     <div class="modal-content">
       <h1>GAME OVER</h1>
-      <p>Your Score: <span id="final-score">0</span></p>
+      <p>Player Score: <span id="final-score">0</span></p>
       <button id="reset-button">Play Again</button>
     </div>
   </div>
 
+  <!-- Pause modal -->
   <div id="pause-modal">
     <div class="modal-content">
       <h1>GAME PAUSED</h1>
@@ -30,6 +37,7 @@
     </div>
   </div>
 
+  <!-- Main JavaScript game logic -->
   <script src="main.js"></script>
 </body>
 </html>
