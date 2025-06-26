@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Neon Snake Canvas Game</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button id="start-button">Start Game</button>
+
+  <div id="header">
+    <div id="scoreboard">Score: 0</div>
+    <div id="highscore">High Score: 0</div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="game-over-modal">
+    <div class="modal-content">
+      <h1>GAME OVER</h1>
+      <p>Your Score: <span id="final-score">0</span></p>
+      <button id="reset-button">Play Again</button>
+    </div>
+  </div>
+
+  <div id="pause-modal">
+    <div class="modal-content">
+      <h1>GAME PAUSED</h1>
+      <button id="resume-button">Resume</button>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
