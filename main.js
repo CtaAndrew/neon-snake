@@ -1,6 +1,6 @@
 // main.js
 
-const cellSize = 20;
+const cellSize = 30;
 const speed = 133; // ms interval (~50% faster)
 let canvas, ctx, cols, rows;
 let snake, direction, nextDirection, food, score, highScore, isPaused, currentSnakeColor;
