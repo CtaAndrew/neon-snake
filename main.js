@@ -1,297 +1,275 @@
-// main.js - Neon Snake Canvas Game with detailed comments
+// main.js - Iteration #17: Pause Fix & Complete Script
 
 // --------------------
 // CONSTANTS & SETTINGS
 // --------------------
-
-// Size of each square cell in pixels
 const cellSize = 40;
-
-// Game update interval in milliseconds (controls speed)
-const speed = 133;
-
-// Padding and border thickness (used when sizing the canvas)
-const PADDING = 10;
-const BORDER = 2;
+const speed = 133;  // ms per movement tick
+const PADDING = 10, BORDER = 2;
+const MAX_FRUITS = 5, MAX_BOMBS = 3;
 
 // --------------------
-// GLOBAL VARIABLES
+// GLOBAL STATE
 // --------------------
-
-// Canvas and drawing context
 let canvas, ctx, cols, rows;
-
-// Game state
-let snake, prevSnake;
-let direction, nextDirection;
-let food;
-
-// Scores
-let score, highScore;
-
-// Pause state
-let isPaused;
-
-// Current snake color (changes when eating fruit)
-let currentSnakeColor;
-
-// Touch coordinates for mobile swipe controls
+let snake, prevSnake, direction, nextDirection;
+let fruits = [], bombs = [];
+let score, highScore, isPaused, currentSnakeColor;
 let touchStartX, touchStartY;
+let lastTime = 0, accumulator = 0;
 
-// Time tracking for smooth animation
-let lastTime = 0;
-let accumulator = 0;
-
-// Fruit shapes with spawn probability (weight) and point value
+// Fruit definitions
 const shapeOptions = [
   { shape: 'circle', weight: 0.5, points: 1 },
   { shape: 'triangle', weight: 0.3, points: 5 },
   { shape: 'diamond', weight: 0.15, points: 10 },
   { shape: 'star', weight: 0.05, points: 25 }
 ];
-
-// Neon colors for fruits and snake
 const colorOptions = ['#f0f', '#0f0', '#f00', '#ff8800', '#bf00ff', '#00f', '#0ff'];
-
 
 // --------------------
 // UTILITY FUNCTIONS
 // --------------------
-
-// Chooses a fruit type based on weighted probability
 function weightedShape() {
-  let r = Math.random();
-  let sum = 0;
+  let r = Math.random(), sum = 0;
   for (const opt of shapeOptions) {
     sum += opt.weight;
     if (r < sum) return opt;
   }
-  // Fallback if rounding issues occur
   return shapeOptions[shapeOptions.length - 1];
 }
 
+function spawnFruit() {
+  if (fruits.length >= MAX_FRUITS) return;
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
+  } while (
+    snake.some(s => s.x === pos.x && s.y === pos.y) ||
+    fruits.some(f => f.x === pos.x && f.y === pos.y) ||
+    bombs.some(b => b.x === pos.x && b.y === pos.y)
+  );
+  const shp = weightedShape();
+  const col = colorOptions[Math.floor(Math.random() * colorOptions.length)];
+  fruits.push({ x: pos.x, y: pos.y, shape: shp.shape, points: shp.points, color: col });
+}
+
+function spawnBomb() {
+  if (bombs.length >= MAX_BOMBS) return;
+  let pos;
+  do {
+    pos = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
+  } while (
+    snake.some(s => s.x === pos.x && s.y === pos.y) ||
+    fruits.some(f => f.x === pos.x && f.y === pos.y) ||
+    bombs.some(b => b.x === pos.x && b.y === pos.y)
+  );
+  bombs.push({ x: pos.x, y: pos.y });
+}
 
 // --------------------
 // GAME INITIALIZATION
 // --------------------
-
-// Called when the user clicks "Start Game"
 function startGame() {
-  // Hide start button and modals
+  // Show/hide UI
   document.getElementById('start-button').style.display = 'none';
   document.getElementById('game-over-modal').classList.remove('show');
   document.getElementById('pause-modal').classList.remove('show');
-
-  // Show header and pause button
-  const header = document.getElementById('header');
-  header.style.display = 'flex';
+  document.getElementById('header').style.display = 'flex';
   document.getElementById('pause-button').style.display = 'inline-block';
 
-  // Reset game state
+  // Initialize state
   prevSnake = [];
-  snake = [{ x: 0, y: 0 }];       // Snake segments: array of {x,y}
-  direction = { x: 1, y: 0 };     // Current movement direction
+  snake = [{ x: 0, y: 0 }];
+  direction = { x: 1, y: 0 };
   nextDirection = { ...direction };
+  fruits = [];
+  bombs = [];
   score = 0;
   isPaused = false;
-  currentSnakeColor = '#0ff';     // Initial snake color
-
+  currentSnakeColor = '#0ff';
   updateScore();
   if (typeof highScore === 'undefined') highScore = 0;
   updateHighScore();
 
-  // Setup canvas size and position
+  // Setup canvas
   canvas = document.getElementById('gameCanvas');
   canvas.style.display = 'block';
-  const headerHeight = header.offsetHeight;
-
-  // Calculate number of columns and rows that fit
+  const headerH = document.getElementById('header').offsetHeight;
   cols = Math.floor((window.innerWidth - 2 * PADDING - 2 * BORDER) / cellSize);
-  rows = Math.floor((window.innerHeight - headerHeight - 2 * PADDING - 2 * BORDER) / cellSize);
-
-  // Resize canvas to exact multiple of cellSize
+  rows = Math.floor((window.innerHeight - headerH - 2 * PADDING - 2 * BORDER) / cellSize);
   canvas.width = cols * cellSize;
   canvas.height = rows * cellSize;
-
-  // Position canvas below header, with padding
-  canvas.style.top = (headerHeight + PADDING) + 'px';
+  canvas.style.top = (headerH + PADDING) + 'px';
   canvas.style.left = PADDING + 'px';
-
-  // Get 2D drawing context
   ctx = canvas.getContext('2d');
 
-  // Place snake head at center
   snake[0] = { x: Math.floor(cols / 2), y: Math.floor(rows / 2) };
 
-  // Generate first fruit
-  placeFood();
+  // Spawn initial fruits
+  for (let i = 0; i < MAX_FRUITS; i++) spawnFruit();
 
-  // Begin animation loop
+  // Reset timing
   lastTime = performance.now();
   accumulator = 0;
   requestAnimationFrame(gameLoop);
 
-  // Event listeners for controls
+  // Event listeners
   window.addEventListener('keydown', handleKey);
   canvas.addEventListener('touchstart', handleTouchStart, false);
   canvas.addEventListener('touchend', handleTouchEnd, false);
   document.getElementById('pause-button').addEventListener('click', togglePause);
 }
 
-
 // --------------------
-// GAME LOOP
+// MAIN LOOP
 // --------------------
-
-// Called by the browser to update and render each frame
 function gameLoop(timestamp) {
-  const delta = timestamp - lastTime;  // Time since last frame
+  if (isPaused) {
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+  let delta = timestamp - lastTime;
   lastTime = timestamp;
   accumulator += delta;
 
-  // Update game state at fixed intervals (speed)
   while (accumulator >= speed) {
-    // Pre-check collision before moving head
     const nextHead = {
       x: (snake[0].x + nextDirection.x + cols) % cols,
       y: (snake[0].y + nextDirection.y + rows) % rows
     };
-    if (snake.some(seg => seg.x === nextHead.x && seg.y === nextHead.y)) {
-      // Collision: Game Over
+    // Collision checks
+    if (bombs.some(b => b.x === nextHead.x && b.y === nextHead.y) ||
+        snake.some(s => s.x === nextHead.x && s.y === nextHead.y)) {
       if (score > highScore) { highScore = score; updateHighScore(); }
       showGameOver();
       return;
     }
-    // Save previous state for interpolation
-    prevSnake = snake.map(s => ({ ...s }));
-    update();        // Move snake and handle fruit
+
+    prevSnake = snake.map(seg => ({ ...seg }));
+    update();
     accumulator -= speed;
   }
 
-  // Fraction for smooth interpolation between updates
   const frac = accumulator / speed;
-  draw(frac);         // Render frame
+  draw(frac);
   requestAnimationFrame(gameLoop);
 }
 
-
 // --------------------
-// GAME LOGIC
+// UPDATE STATE
 // --------------------
-
-// Place a new fruit at a random empty cell
-function placeFood() {
-  const opt = weightedShape();   // Fruit shape and point value
-  let pos;
-  do {
-    pos = {
-      x: Math.floor(Math.random() * cols),
-      y: Math.floor(Math.random() * rows)
-    };
-  } while (snake.some(s => s.x === pos.x && s.y === pos.y));
-
-  // Assign color randomly
-  const color = colorOptions[Math.floor(Math.random() * colorOptions.length)];
-  food = { ...pos, shape: opt.shape, points: opt.points, color };
-}
-
-// Move snake in the current direction, grow if eating fruit
 function update() {
   direction = nextDirection;
-  const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
-  head.x = (head.x + cols) % cols;
-  head.y = (head.y + rows) % rows;
+  const head = {
+    x: (snake[0].x + direction.x + cols) % cols,
+    y: (snake[0].y + direction.y + rows) % rows
+  };
   snake.unshift(head);
 
-  // Fruit collision
-  if (head.x === food.x && head.y === food.y) {
-    score += food.points;
-    currentSnakeColor = food.color;
+  const eatenIndex = fruits.findIndex(f => f.x === head.x && f.y === head.y);
+  if (eatenIndex !== -1) {
+    const eaten = fruits.splice(eatenIndex, 1)[0];
+    score += eaten.points;
+    currentSnakeColor = eaten.color;
     updateScore();
-    placeFood();
+    spawnFruit();
+    if (Math.random() < 0.2) spawnBomb();
+    if (Math.random() < 0.2 && bombs.length > 0) {
+      bombs.splice(Math.floor(Math.random() * bombs.length), 1);
+    }
   } else {
-    snake.pop();  // Remove tail if not eating
+    snake.pop();
   }
 }
 
-
 // --------------------
-// RENDERING
+// RENDER
 // --------------------
-
-// Draw game state, using `frac` for interpolation
 function draw(frac) {
-  // Clear entire canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // ---------- Draw fruit ----------
-  const fx = food.x * cellSize + cellSize/2;
-  const fy = food.y * cellSize + cellSize/2;
-  ctx.fillStyle = food.color;
-  ctx.shadowColor = food.color;
-  ctx.shadowBlur = 15;
-  ctx.beginPath();
-  if (food.shape === 'circle') {
-    ctx.arc(fx, fy, cellSize/2, 0, 2 * Math.PI);
-  } else if (food.shape === 'triangle') {
-    // Equilateral triangle pointing up
-    ctx.moveTo(fx, fy - cellSize/2);
-    ctx.lineTo(fx - cellSize/2, fy + cellSize/2);
-    ctx.lineTo(fx + cellSize/2, fy + cellSize/2);
-    ctx.closePath();
-  } else if (food.shape === 'diamond') {
-    // Diamond rotated square
-    ctx.save();
-    ctx.translate(fx, fy);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-cellSize/2, -cellSize/2, cellSize, cellSize);
-    ctx.restore();
-  } else {
-    // Star shape: draw five spikes
-    const spikes = 5, outer = cellSize/2, inner = outer/2;
-    let rot = Math.PI/2 * 3;
-    ctx.moveTo(fx, fy - outer);
-    for (let i = 0; i < spikes; i++) {
-      ctx.lineTo(fx + Math.cos(rot)*outer, fy + Math.sin(rot)*outer);
-      rot += Math.PI/spikes;
-      ctx.lineTo(fx + Math.cos(rot)*inner, fy + Math.sin(rot)*inner);
-      rot += Math.PI/spikes;
+  // Draw fruits
+  fruits.forEach(f => {
+    const fx = f.x * cellSize + cellSize/2;
+    const fy = f.y * cellSize + cellSize/2;
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    if (f.shape === 'circle') {
+      ctx.arc(fx, fy, cellSize/2, 0, 2*Math.PI);
+    } else if (f.shape === 'triangle') {
+      ctx.moveTo(fx, fy - cellSize/2);
+      ctx.lineTo(fx - cellSize/2, fy + cellSize/2);
+      ctx.lineTo(fx + cellSize/2, fy + cellSize/2);
+      ctx.closePath();
+    } else if (f.shape === 'diamond') {
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.rotate(Math.PI/4);
+      ctx.fillRect(-cellSize/2, -cellSize/2, cellSize, cellSize);
+      ctx.restore();
+    } else { // star
+      const spikes = 5, outer = cellSize/2, inner = outer/2;
+      let rot = Math.PI/2 * 3;
+      ctx.moveTo(fx, fy - outer);
+      for (let i = 0; i < spikes; i++) {
+        ctx.lineTo(fx + Math.cos(rot)*outer, fy + Math.sin(rot)*outer);
+        rot += Math.PI/spikes;
+        ctx.lineTo(fx + Math.cos(rot)*inner, fy + Math.sin(rot)*inner);
+        rot += Math.PI/spikes;
+      }
+      ctx.closePath();
     }
-    ctx.closePath();
-  }
-  ctx.fill();
+    ctx.fill();
+  });
 
-  // ---------- Draw snake segments ----------
-  for (let i = 0; i < snake.length; i++) {
-    const seg = snake[i];
+  // Draw bombs
+  bombs.forEach(b => {
+    const bx = b.x * cellSize + cellSize/2;
+    const by = b.y * cellSize + cellSize/2;
+    const br = cellSize * 0.4;
+    // White circle
+    ctx.fillStyle = '#fff';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, 2*Math.PI);
+    ctx.fill();
+    // Black X
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(bx - br, by - br);
+    ctx.lineTo(bx + br, by + br);
+    ctx.moveTo(bx + br, by - br);
+    ctx.lineTo(bx - br, by + br);
+    ctx.stroke();
+  });
+
+  // Draw snake segments
+  snake.forEach((seg, i) => {
     const prev = prevSnake[i] || seg;
-    let dx = seg.x - prev.x, dy = seg.y - prev.y;
-
-    // Handle wrap-around interpolation
-    if (dx > cols/2) dx -= cols;
-    if (dx < -cols/2) dx += cols;
-    if (dy > rows/2) dy -= rows;
-    if (dy < -rows/2) dy += rows;
-
-    // Interpolated position
+    let dx = seg.x - prev.x;
+    let dy = seg.y - prev.y;
+    // handle wrap-around interpolation
+    if (dx > cols/2) dx -= cols; if (dx < -cols/2) dx += cols;
+    if (dy > rows/2) dy -= rows; if (dy < -rows/2) dy += rows;
     const x = (prev.x + dx * frac) * cellSize;
     const y = (prev.y + dy * frac) * cellSize;
 
-    // Body segments
+    ctx.fillStyle = currentSnakeColor;
+    ctx.shadowColor = currentSnakeColor;
+    ctx.shadowBlur = 15;
+
     if (i > 0) {
-      ctx.fillStyle = currentSnakeColor;
-      ctx.shadowColor = currentSnakeColor;
-      ctx.shadowBlur = 15;
+      // body
       ctx.fillRect(x, y, cellSize, cellSize);
     } else {
-      // Head segment with slight corner rounding at the front
-      const r = cellSize * 0.2;  // Radius for corners
-      ctx.fillStyle = currentSnakeColor;
-      ctx.shadowColor = currentSnakeColor;
-      ctx.shadowBlur = 15;
+      // head with equal rounded front corners
+      const r = cellSize * 0.2;
       ctx.beginPath();
       if (direction.x === 1) {
-        // Moving right: round top-right & bottom-right corners
         ctx.moveTo(x, y);
         ctx.lineTo(x + cellSize - r, y);
         ctx.quadraticCurveTo(x + cellSize, y, x + cellSize, y + r);
@@ -299,7 +277,6 @@ function draw(frac) {
         ctx.quadraticCurveTo(x + cellSize, y + cellSize, x + cellSize - r, y + cellSize);
         ctx.lineTo(x, y + cellSize);
       } else if (direction.x === -1) {
-        // Moving left: round top-left & bottom-left corners
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + cellSize, y);
         ctx.lineTo(x + cellSize, y + cellSize);
@@ -308,7 +285,6 @@ function draw(frac) {
         ctx.lineTo(x, y + r);
         ctx.quadraticCurveTo(x, y, x + r, y);
       } else if (direction.y === 1) {
-        // Moving down: round bottom-left & bottom-right corners
         ctx.moveTo(x, y);
         ctx.lineTo(x + cellSize, y);
         ctx.lineTo(x + cellSize, y + cellSize - r);
@@ -316,8 +292,7 @@ function draw(frac) {
         ctx.lineTo(x + r, y + cellSize);
         ctx.quadraticCurveTo(x, y + cellSize, x, y + cellSize - r);
         ctx.lineTo(x, y);
-      } else {
-        // Moving up: round top-left & top-right corners
+      } else { // up
         ctx.moveTo(x, y + r);
         ctx.lineTo(x, y + cellSize);
         ctx.lineTo(x + cellSize, y + cellSize);
@@ -329,70 +304,67 @@ function draw(frac) {
       ctx.closePath();
       ctx.fill();
 
-      // Draw eyes on head
-      const centerX = x + cellSize/2;
-      const centerY = y + cellSize/2;
-      const eyeOffset = cellSize * 0.2;
-      const eyeRadius = cellSize * 0.1;
-
+      // eyes
+      const cX = x + cellSize/2, cY = y + cellSize/2;
+      const eOff = cellSize * 0.2, eR = cellSize * 0.1;
       ctx.shadowBlur = 0;
-      ctx.fillStyle = '#fff';  // White sclera
+      ctx.fillStyle = '#fff';
       if (direction.x === 0) {
-        // Vertical: eyes side-by-side
+        // vertical: side-by-side
         ctx.beginPath();
-        ctx.arc(centerX - eyeOffset, centerY - eyeOffset/2, eyeRadius, 0, 2*Math.PI);
-        ctx.arc(centerX + eyeOffset, centerY - eyeOffset/2, eyeRadius, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.fillStyle = '#000';  // Pupils
-        ctx.beginPath();
-        ctx.arc(centerX - eyeOffset, centerY - eyeOffset/2, eyeRadius/2, 0, 2*Math.PI);
-        ctx.arc(centerX + eyeOffset, centerY - eyeOffset/2, eyeRadius/2, 0, 2*Math.PI);
-        ctx.fill();
-      } else {
-        // Horizontal: eyes stacked
-        ctx.beginPath();
-        ctx.arc(centerX - eyeOffset/2, centerY - eyeOffset, eyeRadius, 0, 2*Math.PI);
-        ctx.arc(centerX - eyeOffset/2, centerY + eyeOffset, eyeRadius, 0, 2*Math.PI);
+        ctx.arc(cX - eOff, cY - eOff/2, eR, 0, 2*Math.PI);
+        ctx.arc(cX + eOff, cY - eOff/2, eR, 0, 2*Math.PI);
         ctx.fill();
         ctx.fillStyle = '#000';
         ctx.beginPath();
-        ctx.arc(centerX - eyeOffset/2, centerY - eyeOffset, eyeRadius/2, 0, 2*Math.PI);
-        ctx.arc(centerX - eyeOffset/2, centerY + eyeOffset, eyeRadius/2, 0, 2*Math.PI);
+        ctx.arc(cX - eOff, cY - eOff/2, eR/2, 0, 2*Math.PI);
+        ctx.arc(cX + eOff, cY - eOff/2, eR/2, 0, 2*Math.PI);
+        ctx.fill();
+      } else {
+        // horizontal: stacked
+        ctx.beginPath();
+        ctx.arc(cX - eOff/2, cY - eOff, eR, 0, 2*Math.PI);
+        ctx.arc(cX - eOff/2, cY + eOff, eR, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(cX - eOff/2, cY - eOff, eR/2, 0, 2*Math.PI);
+        ctx.arc(cX - eOff/2, cY + eOff, eR/2, 0, 2*Math.PI);
         ctx.fill();
       }
     }
-  }
+  });
 }
 
 // --------------------
-// SCORE & MODAL FUNCTIONS
+// UI & CONTROLS
 // --------------------
-
 function updateScore() {
   document.getElementById('scoreboard').textContent = 'Score: ' + score;
 }
-
 function updateHighScore() {
   document.getElementById('highscore').textContent = 'High Score: ' + highScore;
 }
-
 function showGameOver() {
   document.getElementById('final-score').textContent = score;
   document.getElementById('game-over-modal').classList.add('show');
 }
-
 function togglePause() {
   isPaused = !isPaused;
-  document.getElementById('pause-modal').classList.toggle('show');
+  const modal = document.getElementById('pause-modal');
+  modal.classList.toggle('show', isPaused);
+  if (!isPaused) {
+    // reset timing to prevent jump
+    lastTime = performance.now();
+    accumulator = 0;
+    requestAnimationFrame(gameLoop);
+  }
 }
 
-// --------------------
-// INPUT HANDLERS
-// --------------------
-
-// Keyboard arrow keys and 'P' for pause
 function handleKey(e) {
-  if (e.key === 'p' || e.key === 'P') togglePause();
+  if (e.key === 'p' || e.key === 'P') {
+    togglePause();
+  }
   if (!isPaused) {
     if (e.key === 'ArrowUp' && direction.y !== 1) nextDirection = { x: 0, y: -1 };
     if (e.key === 'ArrowDown' && direction.y !== -1) nextDirection = { x: 0, y: 1 };
@@ -401,18 +373,15 @@ function handleKey(e) {
   }
 }
 
-// Touch-based swipe controls for mobile
 function handleTouchStart(e) {
   const t = e.changedTouches[0];
   touchStartX = t.clientX;
   touchStartY = t.clientY;
   e.preventDefault();
 }
-
 function handleTouchEnd(e) {
   const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
   if (!isPaused) {
     if (Math.abs(dx) > Math.abs(dy)) {
       if (dx > 0 && direction.x !== -1) nextDirection = { x: 1, y: 0 };
@@ -425,12 +394,11 @@ function handleTouchEnd(e) {
   e.preventDefault();
 }
 
-// Initialize game when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-button').addEventListener('click', startGame);
   document.getElementById('reset-button').addEventListener('click', startGame);
-  document.getElementById('resume-button').addEventListener('click', togglePause);
+  document.getElementById('resume-button').addEventListener('click', () => {
+    togglePause();
+  });
 });
-
-// Handle window resize by restarting the game
 window.addEventListener('resize', () => location.reload());

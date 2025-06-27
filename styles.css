@@ -1,131 +1,49 @@
-/* Reset margin/padding and set background to black */
 html, body {
-  margin: 0;
-  padding: 0;
-  background: #000;
-  overflow: hidden;
-  height: 100%;
-  font-family: sans-serif;
+  margin: 0; padding: 0;
+  background: #000; overflow: hidden; height: 100%; font-family: sans-serif;
 }
-
-/* Style for the Start Game button */
 #start-button {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 1rem 2rem;
-  font-size: 1.5rem;
-  background: transparent;
-  color: #0ff;
-  border: 2px solid #0ff;
-  border-radius: 8px;
-  z-index: 3;
-  cursor: pointer;
+  position: absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  padding:1.5rem 3rem; font-size:2rem;
+  background:transparent; color:#0ff; border:3px solid #0ff; border-radius:8px;
+  z-index:3; cursor:pointer;
 }
-
-/* Header positioning and appearance */
 #header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  display: none; /* Shown when game starts */
-  align-items: center;
-  justify-content: center;
-  gap: 6rem;
-  padding: 1rem 0;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 2;
+  position:absolute; top:0; left:0; width:100%; display:none;
+  align-items:center; justify-content:center; gap:6rem; padding:1rem 0;
+  background:rgba(0,0,0,0.8); z-index:2;
 }
-
-/* Score and high score styling */
 #scoreboard, #highscore {
-  color: #0ff;
-  font-size: 2.5rem;
-  text-shadow: 0 0 10px #0ff;
+  color:#0ff; font-size:2.5rem; text-shadow:0 0 10px #0ff;
 }
-
-/* Pause button styling */
 #pause-button {
-  background: transparent;
-  color: #0ff;
-  border: 2px solid #0ff;
-  border-radius: 8px;
-  padding: 1rem 2rem;
-  font-size: 1.5rem;
-  cursor: pointer;
+  background:transparent; color:#0ff; border:2px solid #0ff;
+  border-radius:8px; padding:1rem 2rem; font-size:1.5rem; cursor:pointer;
 }
-
-/* Canvas border */
 #gameCanvas {
-  position: absolute;
-  display: none; /* Shown when game starts */
-  touch-action: none;
-  border: 2px solid #0ff;
+  position:absolute; display:none; touch-action:none; border:2px solid #0ff;
 }
-
-/* Game Over text styling */
 #game-over-modal .modal-content h1 {
-  color: #0f0; /* neon green */
-  text-shadow: 0 0 10px #0f0;
-  font-size: 3rem;
+  color:#0f0; text-shadow:0 0 10px #0f0; font-size:3rem;
 }
-
-/* Player Score line in Game Over modal */
 #game-over-modal .modal-content p {
-  color: #ff0; /* neon yellow */
-  text-shadow: 0 0 10px #ff0;
-  font-size: 1.5rem;
+  color:#ff0; text-shadow:0 0 10px #ff0; font-size:1.5rem;
 }
-
-/* Pause modal text styling */
 #pause-modal .modal-content h1 {
-  color: #f0f;
-  text-shadow: 0 0 10px #f0f;
-  font-size: 3rem;
+  color:#f0f; text-shadow:0 0 10px #f0f; font-size:3rem;
 }
-
-/* Modal overlay common styling */
 #game-over-modal, #pause-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 0.3s;
-  z-index: 4;
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.85); display:flex; align-items:center;
+  justify-content:center; visibility:hidden; opacity:0;
+  transition:opacity 0.3s; z-index:4;
 }
-#game-over-modal.show, #pause-modal.show {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* Center modal content */
-.modal-content {
-  text-align: center;
-}
-
-/* Buttons inside modals */
+#game-over-modal.show, #pause-modal.show { visibility:visible; opacity:1; }
+.modal-content { text-align:center; }
 .modal-content button {
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 1.2rem;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
+  margin-top:1rem; padding:0.75rem 1.5rem; font-size:1.2rem;
+  background:transparent; border-radius:8px; cursor:pointer;
 }
-#game-over-modal button {
-  color: #f0f;
-  border: 2px solid #f0f;
-}
-#pause-modal button {
-  color: #0ff;
-  border: 2px solid #0ff;
-}
+#game-over-modal button { color:#f0f; border:2px solid #f0f; }
+#pause-modal button { color:#0ff; border:2px solid #0ff; }
