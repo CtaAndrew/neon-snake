@@ -17,7 +17,7 @@ html, body {
 #scoreboard, #highscore {
   color:#0ff; font-size:2.5rem; text-shadow:0 0 10px #0ff;
 }
-#pause-button {
+#pause-button, #end-game-button {
   background:transparent; color:#0ff; border:2px solid #0ff;
   border-radius:8px; padding:1rem 2rem; font-size:1.5rem; cursor:pointer;
 }
