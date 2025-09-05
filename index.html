@@ -6,7 +6,9 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="game-title"><span class="letter-n1">N</span><span class="letter-e1">E</span><span class="letter-o">O</span><span class="letter-n2">N</span><span class="letter-space"> </span><span class="letter-s">S</span><span class="letter-n3">N</span><span class="letter-a">A</span><span class="letter-k">K</span><span class="letter-e2">E</span></div>
   <button id="start-button">Start Game</button>
+  <button id="how-to-play-button">How to Play</button>
   <div id="header">
     <div id="scoreboard">Score: 0</div>
     <div id="highscore">High Score: 0</div>
@@ -19,12 +21,87 @@
       <h1>GAME OVER</h1>
       <p>Player Score: <span id="final-score">0</span></p>
       <button id="reset-button">Play Again</button>
+      <button id="reset-highscore-button">Reset High Score</button>
     </div>
   </div>
   <div id="pause-modal">
     <div class="modal-content">
       <h1>GAME PAUSED</h1>
       <button id="resume-button">Resume</button>
+      <button id="pause-how-to-play-button">How to Play</button>
+    </div>
+  </div>
+  <div id="instructions-modal">
+    <div class="instructions-content">
+      <h1>HOW TO PLAY</h1>
+      <div class="instructions-text">
+        <h2>Controls:</h2>
+        <p>• Use <strong>Arrow Keys</strong> or <strong>Swipe</strong> to move</p>
+        <p>• Press <strong>P</strong> to pause during gameplay</p>
+        
+        <h2>Objective:</h2>
+        <p>• Eat fruits to grow and score points</p>
+        <p>• Avoid bombs and don't hit yourself</p>
+        <p>• Game speeds up as you score more points</p>
+        
+        <h2>Fruits & Effects:</h2>
+        <div class="fruit-guide">
+          <div class="fruit-item">
+            <div class="fruit-shape circle-demo"></div>
+            <div class="fruit-info">
+              <strong>Circle Fruit</strong><br>
+              <span class="points">5 points</span><br>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape triangle-demo"></div>
+            <div class="fruit-info">
+              <strong>Triangle Fruit</strong><br>
+              <span class="points">10 points</span><br>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape diamond-demo"></div>
+            <div class="fruit-info">
+              <strong>Diamond Fruit</strong><br>
+              <span class="points">25 points</span><br>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape star-demo"></div>
+            <div class="fruit-info">
+              <strong>Star Fruit</strong><br>
+              <span class="points">50 points</span><br>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape speedreset-demo"></div>
+            <div class="fruit-info">
+              <strong>Speed Fruit</strong><br>
+              <span class="effect-special">Resets speed</span>
+              <br>
+              <span class="effect-special" style="color: #f00">Adds 1 bomb</span>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape shrink-demo"></div>
+            <div class="fruit-info">
+              <strong>Cut Fruit</strong><br>
+              <span class="effect-special">Shrinks snake by half</span>
+              <br>
+              <span class="effect-special" style="color: #f00">Adds 1 bomb</span>
+            </div>
+          </div>
+          <div class="fruit-item">
+            <div class="fruit-shape bomb-demo"></div>
+            <div class="fruit-info">
+              <strong>Bomb</strong><br>
+              <span class="effect" style="color: #f00">Ends game if touched</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button id="close-instructions-button">Close</button>
     </div>
   </div>
   <script src="main.js"></script>

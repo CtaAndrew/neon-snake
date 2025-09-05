@@ -6,14 +6,16 @@
 // =============================================================================
 
 // Game grid and timing constants
-const CELL_SIZE = 40;                    // Size of each grid cell in pixels
-const GAME_SPEED = 133;                  // Milliseconds between game ticks
-const PADDING = 10;                      // Canvas padding from screen edges
+const CELL_SIZE = 60;                    // Size of each grid cell in pixels
+const BASE_GAME_SPEED = 135;             // Base milliseconds between game ticks
+const SPEED_INCREASE_RATE = 0.075;         // Speed increase per point scored
+const MIN_GAME_SPEED = 45;               // Minimum game speed (maximum actual speed)
+const PADDING = 5;                       // Canvas padding from screen edges
 const BORDER_WIDTH = 2;                  // Canvas border thickness
 
 // Game object limits
 const MAX_FRUITS = 5;                    // Maximum fruits on screen simultaneously
-const MAX_BOMBS = 3;                     // Maximum bombs on screen simultaneously
+const MAX_BOMBS = 4;                     // Maximum bombs on screen simultaneously
 
 // Probability constants (extracted magic numbers)
 const BOMB_SPAWN_CHANCE = 0.2;          // 20% chance to spawn bomb when fruit eaten
@@ -40,7 +42,9 @@ const GAME_STATES = {
 
 // Cache frequently accessed DOM elements to avoid repeated queries
 const DOM = {
+  gameTitle: null,
   startButton: null,
+  howToPlayButton: null,
   header: null,
   scoreboard: null,
   highscore: null,
@@ -49,14 +53,19 @@ const DOM = {
   gameCanvas: null,
   gameOverModal: null,
   pauseModal: null,
+  instructionsModal: null,
   finalScore: null,
   resetButton: null,
-  resumeButton: null
+  resetHighscoreButton: null,
+  resumeButton: null,
+  backToTitleButton: null
 };
-
+ 
 // Initialize DOM cache when page loads
 function cacheDOMElements() {
+  DOM.gameTitle = document.getElementById('game-title');
   DOM.startButton = document.getElementById('start-button');
+  DOM.howToPlayButton = document.getElementById('how-to-play-button');
   DOM.header = document.getElementById('header');
   DOM.scoreboard = document.getElementById('scoreboard');
   DOM.highscore = document.getElementById('highscore');
@@ -65,9 +74,13 @@ function cacheDOMElements() {
   DOM.gameCanvas = document.getElementById('gameCanvas');
   DOM.gameOverModal = document.getElementById('game-over-modal');
   DOM.pauseModal = document.getElementById('pause-modal');
+  DOM.instructionsModal = document.getElementById('instructions-modal');
   DOM.finalScore = document.getElementById('final-score');
   DOM.resetButton = document.getElementById('reset-button');
+  DOM.resetHighscoreButton = document.getElementById('reset-highscore-button');
   DOM.resumeButton = document.getElementById('resume-button');
+  DOM.pauseHowToPlayButton = document.getElementById('pause-how-to-play-button');
+  DOM.closeInstructionsButton = document.getElementById('close-instructions-button');
 }
 
 // =============================================================================
@@ -86,6 +99,8 @@ let fruits = [], bombs = [];             // Game objects arrays
 let score, highScore;                    // Score tracking
 let currentGameState = GAME_STATES.MENU; // Current game state
 let currentSnakeColor;                   // Dynamic snake color based on last fruit eaten
+let speedResetScore = 0;                 // Score at which speed calculation is based (for speed resets)
+let maxBombs = MAX_BOMBS;                // Dynamic maximum bombs (increases with shrink fruits)
 
 // Touch input tracking
 let touchStartX, touchStartY;
@@ -101,20 +116,32 @@ let lastTime = 0, accumulator = 0;
 const tempPos = { x: 0, y: 0 };
 const tempDirection = { x: 0, y: 0 };
 
+/**
+ * Calculates the current game speed based on player score
+ * @returns {number} Current game speed in milliseconds
+ */
+function getCurrentGameSpeed() {
+  const effectiveScore = score - speedResetScore;
+  const speedReduction = effectiveScore * SPEED_INCREASE_RATE;
+  return Math.max(MIN_GAME_SPEED, BASE_GAME_SPEED - speedReduction);
+}
+
 // =============================================================================
 // FRUIT CONFIGURATION & GENERATION
 // =============================================================================
 
 // Fruit types with weighted spawning and point values
 const FRUIT_TYPES = [
-  { shape: 'circle', weight: 0.5, points: 5 },    // Common, low value
-  { shape: 'triangle', weight: 0.3, points: 10 },  // Uncommon, medium value
-  { shape: 'diamond', weight: 0.15, points: 25 }, // Rare, high value
-  { shape: 'star', weight: 0.05, points: 50 }     // Very rare, highest value
+  { shape: 'circle', weight: 0.39, points: 5 },    // Common, low value
+  { shape: 'triangle', weight: 0.29, points: 10 },  // Uncommon, medium value
+  { shape: 'diamond', weight: 0.19, points: 25 },   // Rare, high value
+  { shape: 'star', weight: 0.09, points: 50 },      // Very rare, highest value
+  { shape: 'speedreset', weight: 0.02, points: 0, effect: 'speedreset' },  // Ultra rare, resets speed
+  { shape: 'shrink', weight: 0.02, points: 0, effect: 'shrink' }  // Ultra rare, shrinks snake
 ];
 
 // Available colors for fruits and snake
-const FRUIT_COLORS = ['#f0f', '#0f0', '#f00', '#ff8800', '#bf00ff', '#00f', '#0ff'];
+const FRUIT_COLORS = ['#f0f', '#0f0', '#f00', '#ff8800', '#00f', '#0ff'];
 
 /**
  * Selects a fruit type based on weighted probability
@@ -173,14 +200,24 @@ function spawnFruit() {
   if (!position) return; // No safe space available
   
   const fruitType = selectWeightedFruitType();
-  const color = FRUIT_COLORS[Math.floor(Math.random() * FRUIT_COLORS.length)];
   
+  // Give special fruits distinct colors, others get random colors
+  let color;
+  if (fruitType.effect === 'speedreset') {
+    color = '#8a2be2'; // Purple for speed reset
+  } else if (fruitType.effect === 'shrink') {
+    color = '#f2ff00ff'; // Yellow for shrink
+  } else {
+    color = FRUIT_COLORS[Math.floor(Math.random() * FRUIT_COLORS.length)];
+  }
+   
   fruits.push({
     x: position.x,
     y: position.y,
     shape: fruitType.shape,
     points: fruitType.points,
-    color: color
+    color: color,
+    effect: fruitType.effect
   });
 }
 
@@ -189,7 +226,7 @@ function spawnFruit() {
  */
 function spawnBomb() {
   // Don't spawn if at maximum capacity
-  if (bombs.length >= MAX_BOMBS) return;
+  if (bombs.length >= maxBombs) return;
   
   const position = generateSafePosition();
   if (!position) return; // No safe space available
@@ -232,6 +269,19 @@ function saveHighScore(score) {
   }
 }
 
+/**
+ * Resets the high score to 0 in localStorage and updates display
+ */
+function resetHighScore() {
+  try {
+    localStorage.setItem('neonSnakeHighScore', '0');
+    highScore = 0;
+    updateHighScoreDisplay();
+  } catch (error) {
+    console.warn('Unable to reset high score in localStorage:', error);
+  }
+}
+
 // =============================================================================
 // GAME INITIALIZATION & STATE MANAGEMENT
 // =============================================================================
@@ -244,7 +294,9 @@ function startGame() {
   currentGameState = GAME_STATES.PLAYING;
   
   // Update UI visibility
+  DOM.gameTitle.style.display = 'none';
   DOM.startButton.style.display = 'none';
+  DOM.howToPlayButton.style.display = 'none';
   DOM.gameOverModal.classList.remove('show');
   DOM.pauseModal.classList.remove('show');
   DOM.header.style.display = 'flex';
@@ -289,6 +341,8 @@ function initializeGameState() {
   fruits = [];
   bombs = [];
   score = 0;
+  speedResetScore = 0; // Reset speed calculation base
+  maxBombs = MAX_BOMBS; // Reset maximum bombs to default
   currentSnakeColor = '#0ff'; // Default cyan color
   
   // Load high score from localStorage
@@ -314,9 +368,9 @@ function setupCanvas() {
   canvas.width = cols * CELL_SIZE;
   canvas.height = rows * CELL_SIZE;
   
-  // Position canvas
+  // Position canvas - center it horizontally
   canvas.style.top = (headerHeight + PADDING) + 'px';
-  canvas.style.left = PADDING + 'px';
+  canvas.style.left = Math.floor((window.innerWidth - canvas.width) / 2) + 'px';
   
   // Get 2D rendering context
   ctx = canvas.getContext('2d');
@@ -375,7 +429,14 @@ function gameLoop(timestamp) {
   accumulator += deltaTime;
   
   // Fixed timestep updates - ensures consistent game speed across different frame rates
-  while (accumulator >= GAME_SPEED) {
+  const currentSpeed = getCurrentGameSpeed();
+  while (accumulator >= currentSpeed) {
+    // Check if snake is properly initialized
+    if (!snake || snake.length === 0) {
+      console.error('Game loop running but snake not initialized');
+      return;
+    }
+    
     // Calculate next head position using reusable object
     const nextHead = calculateNextPosition(snake[0], nextDirection);
     
@@ -392,11 +453,11 @@ function gameLoop(timestamp) {
     updateGameState();
     
     // Subtract fixed timestep from accumulator
-    accumulator -= GAME_SPEED;
+    accumulator -= currentSpeed;
   }
   
   // Render frame with interpolation for smooth visuals
-  const interpolationFactor = accumulator / GAME_SPEED;
+  const interpolationFactor = accumulator / currentSpeed;
   render(interpolationFactor);
   
   // Continue game loop
@@ -410,6 +471,12 @@ function gameLoop(timestamp) {
  * @returns {Object} Next position with wrapping
  */
 function calculateNextPosition(currentPos, dir) {
+  // Defensive check for undefined parameters
+  if (!currentPos || !dir || cols === undefined || rows === undefined) {
+    console.error('calculateNextPosition called with invalid parameters:', { currentPos, dir, cols, rows });
+    return { x: 0, y: 0 };
+  }
+  
   tempPos.x = (currentPos.x + dir.x + cols) % cols;
   tempPos.y = (currentPos.y + dir.y + rows) % rows;
   return tempPos;
@@ -506,8 +573,29 @@ function handleFruitEaten(fruitIndex) {
   currentSnakeColor = eatenFruit.color;
   updateScoreDisplay();
   
-  // Snake grows by NOT removing the tail (which happens automatically since we don't call snake.pop())
-  // The new head was already added in updateGameState(), so the snake is now one segment longer
+  // Debug: Log current speed after eating fruit
+  console.log('Fruit eaten! Current speed:', getCurrentGameSpeed() + 'ms', 'Score:', score, 'Speed reset score:', speedResetScore, 'Max bombs:', maxBombs);
+  
+  // Handle special fruit effects
+  if (eatenFruit.effect === 'speedreset') {
+    // Reset speed by setting speedResetScore to current score
+    speedResetScore = score;
+    // Increase maximum bomb count
+    maxBombs++;
+    // Also need to remove the tail since speed reset fruit doesn't make snake grow
+    snake.pop();
+  } else if (eatenFruit.effect === 'shrink') {
+    // Shrink snake to half its length (minimum length of 1)
+    const newLength = Math.max(1, Math.floor(snake.length / 2));
+    snake = snake.slice(0, newLength);
+    // Increase maximum bomb count
+    maxBombs++;
+    // Also need to remove the tail since shrink fruit doesn't make snake grow
+    snake.pop();
+  } else {
+    // Normal fruit: Snake grows by NOT removing the tail
+    // The new head was already added in updateGameState(), so the snake is now one segment longer
+  }
   
   // Spawn new fruit to replace eaten one
   spawnFruit();
@@ -597,6 +685,14 @@ function renderFruitShape(shape, centerX, centerY) {
     case 'star':
       renderStarShape(centerX, centerY);
       break;
+      
+    case 'speedreset':
+      renderSpeedResetShape(centerX, centerY);
+      break;
+      
+    case 'shrink':
+      renderShrinkShape(centerX, centerY);
+      break;
   }
   
   ctx.fill();
@@ -632,6 +728,58 @@ function renderStarShape(centerX, centerY) {
   }
   
   ctx.closePath();
+}
+
+/**
+ * Renders a speed reset fruit shape (hourglass/bow-tie shape) at given coordinates
+ * @param {number} centerX - X coordinate of speed reset fruit center
+ * @param {number} centerY - Y coordinate of speed reset fruit center
+ */
+function renderSpeedResetShape(centerX, centerY) {
+  const size = CELL_SIZE * 0.35;
+  
+  // Draw hourglass/bow-tie shape - two triangles meeting at center
+  // Top triangle
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(centerX - size, centerY - size);
+  ctx.lineTo(centerX + size, centerY - size);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Bottom triangle
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(centerX - size, centerY + size);
+  ctx.lineTo(centerX + size, centerY + size);
+  ctx.closePath();
+}
+
+/**
+ * Renders a shrink fruit shape (thick cut/slice symbol) at given coordinates
+ * @param {number} centerX - X coordinate of shrink fruit center
+ * @param {number} centerY - Y coordinate of shrink fruit center
+ */
+function renderShrinkShape(centerX, centerY) {
+  const size = CELL_SIZE * 0.35;
+  const thickness = CELL_SIZE * 0.08;
+  
+  // Draw thick X made of rectangles for better visibility
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  
+  // First diagonal bar (top-left to bottom-right)
+  ctx.save();
+  ctx.rotate(Math.PI / 4);
+  ctx.fillRect(-size, -thickness / 2, size * 2, thickness);
+  ctx.restore();
+  
+  // Second diagonal bar (top-right to bottom-left)
+  ctx.save();
+  ctx.rotate(-Math.PI / 4);
+  ctx.fillRect(-size, -thickness / 2, size * 2, thickness);
+  ctx.restore();
+  
+  ctx.restore();
 }
 
 /**
@@ -840,6 +988,20 @@ function showGameOverModal() {
 }
 
 /**
+ * Shows the instructions modal
+ */
+function showInstructions() {
+  DOM.instructionsModal.classList.add('show');
+}
+
+/**
+ * Hides the instructions modal and returns to title screen
+ */
+function hideInstructions() {
+  DOM.instructionsModal.classList.remove('show');
+}
+
+/**
  * Toggles game pause state
  */
 function togglePause() {
@@ -972,8 +1134,12 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Attach UI event listeners
   DOM.startButton.addEventListener('click', startGame);
+  DOM.howToPlayButton.addEventListener('click', showInstructions);
   DOM.resetButton.addEventListener('click', startGame);
+  DOM.resetHighscoreButton.addEventListener('click', resetHighScore);
   DOM.resumeButton.addEventListener('click', togglePause);
+  DOM.pauseHowToPlayButton.addEventListener('click', showInstructions);
+  DOM.closeInstructionsButton.addEventListener('click', hideInstructions);
 });
 
 /**
