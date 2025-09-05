@@ -17,16 +17,17 @@ const BORDER_WIDTH = 2;                  // Canvas border thickness
 const MAX_FRUITS = 5;                    // Maximum fruits on screen simultaneously
 const MAX_BOMBS = 4;                     // Maximum bombs on screen simultaneously
 
-// Probability constants (extracted magic numbers)
-const BOMB_SPAWN_CHANCE = 0.2;          // 20% chance to spawn bomb when fruit eaten
-const BOMB_REMOVE_CHANCE = 0.2;         // 20% chance to remove random bomb when fruit eaten
+// Probability constants for dynamic bomb spawning
+const BASE_BOMB_SPAWN_CHANCE = 0.3;     // 30% base spawn chance when no bombs exist
+const MIN_BOMB_SPAWN_CHANCE = 0.05;     // 5% minimum spawn chance when at max capacity
+const MAX_BOMB_DESPAWN_CHANCE = 0.25;   // 25% maximum despawn chance when at max capacity
 
 // Visual constants
 const SHADOW_BLUR = 15;                  // Glow effect blur radius
 const HEAD_CORNER_RADIUS = 0.2;         // Snake head corner rounding (as fraction of cell size)
 const EYE_OFFSET = 0.2;                  // Eye position offset (as fraction of cell size)
 const EYE_RADIUS = 0.1;                  // Eye size (as fraction of cell size)
-const BOMB_RADIUS = 0.4;                 // Bomb size (as fraction of cell size)
+const BOMB_RADIUS = 0.44;                // Bomb size (as fraction of cell size)
 
 // Game states enum for better state management
 const GAME_STATES = {
@@ -224,6 +225,29 @@ function spawnFruit() {
 /**
  * Spawns a new bomb at a random safe location
  */
+/**
+ * Calculates dynamic bomb spawn and despawn rates based on current bomb density
+ * @returns {Object} Object with spawnRate and despawnRate properties
+ */
+function calculateBombRates() {
+  const currentBombs = bombs.length;
+  const maxBombCapacity = maxBombs;
+  
+  // Calculate bomb density ratio (0 = no bombs, 1 = at max capacity)
+  const bombDensity = maxBombCapacity > 0 ? currentBombs / maxBombCapacity : 0;
+  
+  // Spawn rate: High when no bombs (30%), decreases to minimum as bombs increase
+  const spawnRate = BASE_BOMB_SPAWN_CHANCE - (bombDensity * (BASE_BOMB_SPAWN_CHANCE - MIN_BOMB_SPAWN_CHANCE));
+  
+  // Despawn rate: 0% when no bombs, increases to maximum as bombs increase
+  const despawnRate = bombDensity * MAX_BOMB_DESPAWN_CHANCE;
+  
+  return {
+    spawnRate: Math.max(0, Math.min(1, spawnRate)),
+    despawnRate: Math.max(0, Math.min(1, despawnRate))
+  };
+}
+
 function spawnBomb() {
   // Don't spawn if at maximum capacity
   if (bombs.length >= maxBombs) return;
@@ -600,12 +624,15 @@ function handleFruitEaten(fruitIndex) {
   // Spawn new fruit to replace eaten one
   spawnFruit();
   
-  // Randomly spawn or remove bombs based on configured probabilities
-  if (Math.random() < BOMB_SPAWN_CHANCE) {
+  // Use dynamic bomb spawn/despawn rates based on current bomb density
+  const bombRates = calculateBombRates();
+  console.log('Bomb rates - Current bombs:', bombs.length, '/', maxBombs, 'Spawn rate:', (bombRates.spawnRate * 100).toFixed(1) + '%', 'Despawn rate:', (bombRates.despawnRate * 100).toFixed(1) + '%');
+  
+  if (Math.random() < bombRates.spawnRate) {
     spawnBomb();
   }
   
-  if (Math.random() < BOMB_REMOVE_CHANCE && bombs.length > 0) {
+  if (Math.random() < bombRates.despawnRate && bombs.length > 0) {
     const randomBombIndex = Math.floor(Math.random() * bombs.length);
     bombs.splice(randomBombIndex, 1);
   }
@@ -667,9 +694,10 @@ function renderFruitShape(shape, centerX, centerY) {
       break;
       
     case 'triangle':
-      ctx.moveTo(centerX, centerY - CELL_SIZE / 2);
-      ctx.lineTo(centerX - CELL_SIZE / 2, centerY + CELL_SIZE / 2);
-      ctx.lineTo(centerX + CELL_SIZE / 2, centerY + CELL_SIZE / 2);
+      const triangleSize = CELL_SIZE * 0.45;
+      ctx.moveTo(centerX, centerY - triangleSize);
+      ctx.lineTo(centerX - triangleSize, centerY + triangleSize);
+      ctx.lineTo(centerX + triangleSize, centerY + triangleSize);
       ctx.closePath();
       break;
       
@@ -678,7 +706,8 @@ function renderFruitShape(shape, centerX, centerY) {
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-CELL_SIZE / 2, -CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
+      const diamondSize = CELL_SIZE * 0.75;
+      ctx.fillRect(-diamondSize / 2, -diamondSize / 2, diamondSize, diamondSize);
       ctx.restore();
       return; // Early return since we used fillRect
       
@@ -736,7 +765,7 @@ function renderStarShape(centerX, centerY) {
  * @param {number} centerY - Y coordinate of speed reset fruit center
  */
 function renderSpeedResetShape(centerX, centerY) {
-  const size = CELL_SIZE * 0.35;
+  const size = CELL_SIZE * 0.385;
   
   // Draw hourglass/bow-tie shape - two triangles meeting at center
   // Top triangle
@@ -760,8 +789,8 @@ function renderSpeedResetShape(centerX, centerY) {
  * @param {number} centerY - Y coordinate of shrink fruit center
  */
 function renderShrinkShape(centerX, centerY) {
-  const size = CELL_SIZE * 0.35;
-  const thickness = CELL_SIZE * 0.08;
+  const size = CELL_SIZE * 0.45;
+  const thickness = CELL_SIZE * 0.1;
   
   // Draw thick X made of rectangles for better visibility
   ctx.save();
